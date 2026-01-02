@@ -1,0 +1,12 @@
+# Snowflake connector
+snowflake-connector-python==3.6.0
+
+# Data manipulation
+pandas==2.2.0
+numpy==1.26.4
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Logging
+loguru==0.7.2

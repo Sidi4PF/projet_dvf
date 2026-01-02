@@ -1,0 +1,24 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# dbt
+dvf_project/target/
+dvf_project/dbt_packages/
+dvf_project/logs/
+dvf_project/dbt_modules/
+
+# Credentials (IMPORTANT !)
+.dbt/
+*.env
+scripts/load_raw_data.py  # Contient tes identifiants
+
+# Data (trop volumineux pour Git)
+data/raw/*.txt
+
+# OS
+.DS_Store
+Thumbs.db
