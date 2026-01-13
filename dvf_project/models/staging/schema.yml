@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_dvf__mutations
+    description: "Mutations DVF unifiées et typées"
+    columns:
+      - name: identifiant_de_document
+        description: "ID unique (généré si manquant)"
+        tests:
+          - not_null
+          - unique
+
+      - name: date_mutation
+        description: "Date de la transaction"
+        tests:
+          - not_null
+
+  - name: fct_transactions
+    description: "Transactions nettoyées - ventes uniquement"
+    columns:
+      - name: valeur_fonciere
+        tests:
+          - not_null
