@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: agg_communes
+    description: "Agrégations par commune et année"
+    columns:
+      - name: code_commune
+        tests:
+          - not_null
+
+      - name: annee
+        tests:
+          - not_null
+          - accepted_values:
+              values: [2020, 2021, 2022, 2023]
+
+      - name: nb_transactions
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 1"
