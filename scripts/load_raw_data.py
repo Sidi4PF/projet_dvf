@@ -2,15 +2,19 @@ import pandas as pd
 import snowflake.connector
 from pathlib import Path
 from snowflake.connector.pandas_tools import write_pandas
+from dotenv import load_dotenv
+import os
 
-# Config Snowflake (CORRECT)
+# Config Snowflake
+load_dotenv()
+
 SNOWFLAKE_CONFIG = {
-    'user': 'SIDIBOCOUM',
-    'password': 'Excalibur@223700',
-    'account': 'ANCOCUF-VK22984',
-    'warehouse': 'DVF_WH',
-    'database': 'DVF_DB',
-    'schema': 'RAW'
+    "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+    "user": os.getenv("SNOWFLAKE_USER"),
+    "password": os.getenv("SNOWFLAKE_PASSWORD"),
+    "database": os.getenv("SNOWFLAKE_DATABASE"),
+    "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
+    "schema": os.getenv("SNOWFLAKE_SCHEMA"),
 }
 
 def load_dvf_files():

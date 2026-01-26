@@ -31,7 +31,7 @@ models:
   dvf_project:
     staging:
       +materialized: view
-      +schema: staging
+      +schema: STAGING
     marts:
       +materialized: table
-      +schema: marts
+      +schema: MARTS

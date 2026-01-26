@@ -1,5 +1,18 @@
 {{ config(materialized='table') }}
 
+WITH deduped AS (
+    SELECT *,
+        ROW_NUMBER() OVER (
+            PARTITION BY identifiant_de_document 
+            ORDER BY surface_reelle_bati DESC NULLS LAST
+        ) AS rn
+    FROM {{ ref('stg_dvf__mutations') }}
+    WHERE nature_mutation = 'Vente'
+      AND valeur_fonciere > 1000
+      AND valeur_fonciere < 50000000
+      AND type_local IN ('Maison', 'Appartement')
+)
+
 SELECT
     identifiant_de_document,
     date_mutation,
@@ -17,34 +30,36 @@ SELECT
     ) AS trimestre,
     nature_mutation,
     valeur_fonciere,
-
--- Localisation
-code_postal, commune, code_departement, code_commune,
-
--- Bien
-type_local,
-surface_reelle_bati,
-nombre_pieces_principales,
-surface_terrain,
-nombre_de_lots,
-
--- Prix au m² (si surface existe)
-CASE
-    WHEN surface_reelle_bati > 0 THEN valeur_fonciere / surface_reelle_bati
-    ELSE NULL
-END AS prix_m2,
-
--- Flags de qualité
-CASE WHEN valeur_fonciere > 0 THEN 1 ELSE 0 END AS has_prix,
-    CASE WHEN surface_reelle_bati > 0 THEN 1 ELSE 0 END AS has_surface,
-    
+    code_postal,
+    commune,
+    code_departement,
+    code_commune,
+    type_local,
+    surface_reelle_bati,
+    nombre_pieces_principales,
+    surface_terrain,
+    nombre_de_lots,
+    CASE
+        WHEN surface_reelle_bati > 0 THEN valeur_fonciere / surface_reelle_bati
+        ELSE NULL
+    END AS prix_m2,
+    CASE
+        WHEN valeur_fonciere > 0 THEN 1
+        ELSE 0
+    END AS has_prix,
+    CASE
+        WHEN surface_reelle_bati > 0 THEN 1
+        ELSE 0
+    END AS has_surface,
     source_file,
     loaded_at
-
-FROM {{ ref('stg_dvf__mutations') }}
-
-WHERE 1=1
-    AND nature_mutation = 'Vente'  -- Focus sur les ventes
-    AND valeur_fonciere > 1000     -- Exclure prix aberrants
-    AND valeur_fonciere < 50000000 -- Exclure valeurs extrêmes
-    AND type_local IN ('Maison', 'Appartement', 'Local industriel. commercial ou assimilé')
+FROM deduped
+WHERE
+    rn = 1
+    AND (
+        surface_reelle_bati IS NULL
+        OR surface_reelle_bati = 0
+        OR (
+            valeur_fonciere / surface_reelle_bati BETWEEN 500 AND 30000
+        )
+    )

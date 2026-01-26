@@ -11,10 +11,9 @@ dvf_project/dbt_packages/
 dvf_project/logs/
 dvf_project/dbt_modules/
 
-# Credentials (IMPORTANT !)
+# Credentials
+.env
 .dbt/
-*.env
-scripts/load_raw_data.py  # Contient tes identifiants
 
 # Data (trop volumineux pour Git)
 data/raw/*.txt
