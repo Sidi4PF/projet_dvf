@@ -8,16 +8,7 @@
 
 Pipeline data engineering end-to-end analysant **9+ millions de transactions immobilières françaises** (2020-2023) issues de la base DVF (Demandes de Valeurs Foncières).
 
-**Stack technique** : Snowflake • dbt Core • Python • Streamlit
-
----
-
-## Objectifs du Projet
-
-- Construire une architecture data moderne (ELT)
-- Implémenter des transformations SQL avec dbt
-- Créer des KPIs business actionnables
-- Assurer la qualité des données via des tests automatisés
+**Stack technique** : Snowflake / dbt Core / Python
 
 ---
 
@@ -25,135 +16,169 @@ Pipeline data engineering end-to-end analysant **9+ millions de transactions imm
 
 ```
 ┌─────────────┐
-│  Données    │
 │  DVF (txt)  │  2.4 Go
 └──────┬──────┘
-       │ Python Script
+       │ Python ingestion
        ▼
 ┌─────────────┐
 │  SNOWFLAKE  │
-│     RAW     │  9M+ lignes
+│     RAW     │  15M+ lignes brutes
 └──────┬──────┘
-       │ dbt transformations
+       │ dbt run
        ▼
 ┌─────────────┐
-│   STAGING   │  Nettoyage + Typage
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    MARTS    │  Tables analytiques
-│             │  • fct_transactions
-│             │  • agg_communes
+│   STAGING   │  Nettoyage, typage, IDs
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
-│  STREAMLIT  │  Dashboard interactif
+│    MARTS    │  fct_transactions / agg_communes
 └─────────────┘
 ```
 
 ---
 
-## Résultats Clés
+## Résultats
 
-### Métriques Business
-
-- **9 078 000+** transactions analysées
-- **36 000+** communes couvertes
-- **4 années** de données (2020-2023)
-- **Prix médian national** : ~2 800€/m² (2023)
-
-### Insights
-
-- 🏆 Commune la plus chère : Vélizy-Villacoublay (8 316€/m²)
-- 📊 Volume stable post-COVID (~2M transactions/an)
-- 🌍 Forte activité outre-mer (Guadeloupe)
+- 5M+ transactions résidentielles après nettoyage (maisons et appartements uniquement)
+- 36 000+ communes couvertes sur 4 années (2020-2023)
+- Paris 6/7 en tête à 14 000-15 000 €/m², Ramatuelle autour de 16 000 €/m²
+- 9 tests qualité automatisés : nulls, unicité, valeurs aberrantes
 
 ---
 
-## Installation & Usage
+## Pipeline Outputs
+
+### Tests qualité dbt
+
+![dbt test results](assets/dbt_test_pass.png)
+
+### fct_transactions — apercu
+
+![fct_transactions sample](assets/fct_transactions_sample.png)
+
+### agg_communes — top communes par prix/m²
+
+![agg_communes top prix](assets/agg_communes_top_prix.png)
+
+---
+
+## Modeles dbt
+
+### Staging
+
+**stg_dvf\_\_mutations** : union des 4 fichiers annuels, nettoyage des types, gestion des formats français (virgules vers points), génération d'IDs synthétiques pour les lignes sans identifiant.
+
+### Marts
+
+**fct_transactions** : table de faits dédupliquée par mutation (ROW_NUMBER sur identifiant_de_document), filtrée sur les ventes résidentielles uniquement, avec calcul du prix/m² et flags de qualité. Filtres prix appliqués : 1 000 € < valeur < 50 000 000 €, prix/m² entre 500 et 30 000 €.
+
+**agg_communes** : KPIs agrégés par commune et année — prix médian, prix/m² médian, volume de transactions, surfaces médianes, répartition maisons/appartements.
+
+---
+
+## Tests de qualité
+
+9 tests dbt couvrant :
+
+- Nulls sur les colonnes critiques (date_mutation, valeur_fonciere, code_commune)
+- Unicité de l'identifiant de document
+- Valeurs acceptées sur l'année (2020-2023)
+- Cohérence du nombre de transactions
+
+```
+dbt test
+Done. PASS=9 WARN=0 ERROR=0 SKIP=0 TOTAL=9
+```
+
+---
+
+## Installation
 
 ### Prérequis
 
-```bash
+```
 Python 3.11+
-Compte Snowflake (trial gratuit)
+Compte Snowflake
 dbt Core 1.11+
 ```
 
 ### Setup
 
-1. **Cloner le repo**
+1. Cloner le repo
 
 ```bash
-git clone https://github.com/Sidi4PF/projet-dvf.git
+git clone https://github.com/Sidi4PF/projet_dvf.git
 cd projet_dvf
 ```
 
-2. **Environnement Python**
+2. Environnement Python
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. **Configuration Snowflake**
+3. Variables d'environnement — créer un fichier `.env` à la racine
+
+```
+SNOWFLAKE_ACCOUNT=...
+SNOWFLAKE_USER=...
+SNOWFLAKE_PASSWORD=...
+SNOWFLAKE_DATABASE=DVF_DB
+SNOWFLAKE_WAREHOUSE=DVF_WH
+SNOWFLAKE_SCHEMA=RAW
+```
+
+4. Créer les schemas Snowflake
 
 ```sql
-CREATE DATABASE DVF_DB;
-CREATE WAREHOUSE DVF_WH WITH WAREHOUSE_SIZE = 'XSMALL';
-CREATE SCHEMA DVF_DB.RAW;
-CREATE SCHEMA DVF_DB.STAGING;
-CREATE SCHEMA DVF_DB.MARTS;
+CREATE DATABASE IF NOT EXISTS DVF_DB;
+CREATE WAREHOUSE IF NOT EXISTS DVF_WH WITH WAREHOUSE_SIZE = 'XSMALL';
+USE DATABASE DVF_DB;
+CREATE SCHEMA IF NOT EXISTS RAW;
+CREATE SCHEMA IF NOT EXISTS STAGING;
+CREATE SCHEMA IF NOT EXISTS MARTS;
 ```
 
-4. **Configuration dbt**
+5. Configurer dbt — voir la [documentation Snowflake](https://docs.getdbt.com/docs/core/connect-data-platform/snowflake-setup) pour `~/.dbt/profiles.yml`
 
-Voir la [documentation dbt](https://docs.getdbt.com/docs/core/connect-data-platform/snowflake-setup) pour configurer `~/.dbt/profiles.yml` avec vos credentials Snowflake.
+6. Lancer le pipeline
 
 ```bash
+python scripts/load_raw_data.py
 cd dvf_project
-dbt debug  # Vérifier la connexion
-dbt deps   # Installer les dépendances
-dbt run    # Exécuter les transformations
-dbt test   # Lancer les tests qualité
+dbt run
+dbt test
 ```
 
-5. **Données DVF**
-
-Télécharger les fichiers depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/) et placer dans `data/raw/`.
-
-6. **Dashboard Streamlit**
-
-```bash
-streamlit run app.py
-```
+7. Données DVF — télécharger depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/) et placer dans `data/raw/`
 
 ---
 
-## Structure du Projet
+## Structure du projet
 
 ```
 projet_dvf/
+├── assets/               # Screenshots et outputs
 ├── data/
-│   └── raw/              # Données sources DVF (non versionnées)
+│   └── raw/              # Fichiers DVF sources (non versionnés)
 ├── scripts/
-│   └── load_raw_data.py  # Ingestion Python → Snowflake
+│   └── load_raw_data.py  # Ingestion Python vers Snowflake
 ├── dvf_project/          # Projet dbt
+│   ├── macros/
+│   │   └── generate_schema_name.sql
 │   ├── models/
-│   │   ├── staging/      # Modèles de nettoyage
+│   │   ├── staging/
 │   │   │   ├── stg_dvf__mutations.sql
 │   │   │   ├── sources.yml
 │   │   │   └── schema.yml
-│   │   └── marts/        # Tables analytiques finales
+│   │   └── marts/
 │   │       ├── fct_transactions.sql
 │   │       ├── agg_communes.sql
 │   │       └── schema.yml
-│   ├── dbt_project.yml
-│   └── packages.yml
-├── app.py                # Dashboard Streamlit
+│   └── dbt_project.yml
 ├── requirements.txt
 ├── .gitignore
 └── README.md
@@ -161,141 +186,29 @@ projet_dvf/
 
 ---
 
-## Tests de Qualité
+## Stack technique
 
-- ✅ 9 tests dbt automatisés
-- ✅ Validation des nulls, unicité, valeurs acceptées
-- ✅ Détection d'anomalies (prix aberrants, données manquantes)
-
-```bash
-dbt test
-# Done. PASS=9 WARN=0 ERROR=0 ✅
-```
-
-**Anomalies détectées et traitées :**
-
-- 15M lignes sans identifiant → ID synthétique généré
-- 143k transactions sans prix → Filtrées
-- 147k prix/m² aberrants → Exclus des analyses
+| Technologie | Usage                              |
+| ----------- | ---------------------------------- |
+| Snowflake   | Data warehouse cloud               |
+| dbt Core    | Transformations ELT                |
+| Python      | Ingestion des données brutes       |
+| pandas      | Lecture et chargement des fichiers |
 
 ---
 
-## Stack Technique
+## Source des données
 
-| Technologie   | Usage                   |
-| ------------- | ----------------------- |
-| **Snowflake** | Data warehouse cloud    |
-| **dbt Core**  | Transformations ELT     |
-| **Python**    | Ingestion de données    |
-| **Streamlit** | Dashboard interactif    |
-| **pandas**    | Manipulation de données |
-
----
-
-## Modèles dbt Créés
-
-### Staging Layer
-
-- **`stg_dvf__mutations`** : Union et nettoyage des 4 années de données
-  - Conversion des types (dates, nombres)
-  - Gestion des formats français (virgules → points)
-  - Génération d'IDs uniques
-
-### Marts Layer
-
-- **`fct_transactions`** : Table de faits avec enrichissements
-  - Calcul automatique du prix au m²
-  - Extraction année/mois/trimestre
-  - Flags de qualité (has_prix, has_surface)
-  - Filtres métier (ventes uniquement, prix cohérents)
-
-- **`agg_communes`** : KPIs agrégés par commune et année
-  - Prix médian/moyen et prix/m²
-  - Volume de transactions
-  - Surfaces médianes
-  - Répartition maisons/appartements
-
----
-
-## Analyses Disponibles
-
-Le dashboard Streamlit permet d'explorer :
-
-- 📈 **Évolution temporelle** : Tendances de prix 2020-2023
-- 🗺️ **Analyse géographique** : Comparaison départements/communes
-- 🏘️ **Segmentation** : Maisons vs Appartements
-- 💰 **Prix au m²** : Ranking des communes les plus chères
-- 📊 **Volumes** : Activité du marché par zone
-
----
-
-## Sources de Données
-
-**DVF (Demandes de Valeurs Foncières)**
-
-- Source : [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/)
-- Organisme : Direction Générale des Finances Publiques (DGFiP)
-- Fréquence : Mise à jour semestrielle
-- Format : Fichiers .txt pipe-delimited (|)
-- Licence : Licence Ouverte / Open License (Etalab)
-- Période couverte : 2020-2023
-
-**Colonnes principales utilisées :**
-
-- `date_mutation`, `nature_mutation`, `valeur_fonciere`
-- `code_postal`, `commune`, `code_departement`
-- `type_local`, `surface_reelle_bati`, `nombre_pieces_principales`
-
----
-
-## Compétences Démontrées
-
-### Techniques
-
-- ✅ Architecture data moderne en couches (RAW/STAGING/MARTS)
-- ✅ SQL avancé (CTEs, Window Functions, agrégations complexes)
-- ✅ Data Quality Engineering (tests automatisés, détection d'anomalies)
-- ✅ Cloud Data Warehousing (Snowflake)
-- ✅ ELT avec dbt (transformations, documentation, lineage)
-- ✅ Python pour l'ingestion de données
-- ✅ Data Visualization (Streamlit, Plotly)
-
-### Méthodologiques
-
-- ✅ Debugging et résolution de problèmes techniques
-- ✅ Documentation technique complète
-- ✅ Versioning et bonnes pratiques Git
-- ✅ Pensée analytique et business intelligence
-
----
-
-## Améliorations Futures
-
-- [ ] Incremental loading pour nouvelles données 2024/2025
-- [ ] Enrichissement avec données INSEE (revenus, démographie)
-- [ ] Modèle ML de prédiction de prix
-- [ ] API REST pour exposer les données
-- [ ] CI/CD avec GitHub Actions
-- [ ] Documentation auto-générée (dbt docs)
-- [ ] Analyse géospatiale avancée
+DVF (Demandes de Valeurs Foncières) — Direction Générale des Finances Publiques (DGFiP)
+Disponible sur [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/) sous Licence Ouverte Etalab.
+Période couverte : 2020-2023, format .txt pipe-delimited.
 
 ---
 
 ## Contact
 
-**[TON NOM]**
+Sidi Amadou Bocoum
 
-- 🌐 Portfolio : [lien-vers-ton-portfolio]
-- 💼 LinkedIn : https://www.linkedin.com/in/sidi-amadou-bocoum-046b691b6/
-- 📧 Email : sidi.bocoum02@gmail.com
-- 💻 GitHub : https://github.com/Sidi4PF
-
----
-
-## Licence
-
-Ce projet est sous licence MIT.
-
-Les données DVF sont sous [Licence Ouverte / Open License Etalab](https://www.etalab.gouv.fr/licence-ouverte-open-licence).
-
----
+- LinkedIn : https://www.linkedin.com/in/sidi-amadou-bocoum-046b691b6/
+- GitHub : https://github.com/Sidi4PF
+- Email : sidi.bocoum02@gmail.com
