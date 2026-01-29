@@ -3,12 +3,15 @@
 [![dbt](https://img.shields.io/badge/dbt-1.11-orange)](https://www.getdbt.com/)
 [![Snowflake](https://img.shields.io/badge/Snowflake-Cloud-blue)](https://www.snowflake.com/)
 [![Python](https://img.shields.io/badge/Python-3.11-green)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-deployed-red)](https://projetdvf.streamlit.app/)
 
 ## Vue d'ensemble
 
 Pipeline data engineering end-to-end analysant **9+ millions de transactions immobilières françaises** (2020-2023) issues de la base DVF (Demandes de Valeurs Foncières).
 
-**Stack technique** : Snowflake / dbt Core / Python
+**Stack technique** : Snowflake / dbt Core / Python / Streamlit
+
+**Dashboard interactif** : [projetdvf.streamlit.app](https://projetdvf.streamlit.app/)
 
 ---
 
@@ -16,9 +19,9 @@ Pipeline data engineering end-to-end analysant **9+ millions de transactions imm
 
 ```
 ┌─────────────┐
-│  DVF (txt)  │  2.4 Go
+│  DVF (txt)  │  2.4 Go — 4 fichiers annuels pipe-delimited
 └──────┬──────┘
-       │ Python ingestion
+       │ Python ingestion (load_raw_data.py)
        ▼
 ┌─────────────┐
 │  SNOWFLAKE  │
@@ -27,12 +30,21 @@ Pipeline data engineering end-to-end analysant **9+ millions de transactions imm
        │ dbt run
        ▼
 ┌─────────────┐
-│   STAGING   │  Nettoyage, typage, IDs
+│   STAGING   │  Nettoyage, typage, IDs synthétiques
+│             │  stg_dvf__mutations
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
-│    MARTS    │  fct_transactions / agg_communes
+│    MARTS    │  Tables analytiques finales
+│             │  fct_transactions (5M+ lignes)
+│             │  agg_communes (36k communes)
+└──────┬──────┘
+       │ CSV export
+       ▼
+┌─────────────┐
+│  STREAMLIT  │  Dashboard interactif déployé
+│  DASHBOARD  │  projetdvf.streamlit.app
 └─────────────┘
 ```
 
@@ -42,7 +54,7 @@ Pipeline data engineering end-to-end analysant **9+ millions de transactions imm
 
 - 5M+ transactions résidentielles après nettoyage (maisons et appartements uniquement)
 - 36 000+ communes couvertes sur 4 années (2020-2023)
-- Paris 6/7 en tête à 14 000-15 000 €/m², Ramatuelle autour de 16 000 €/m²
+- Ramatuelle en tête à 15 000 €/m², Paris 06/07 à 14 000-15 000 €/m²
 - 9 tests qualité automatisés : nulls, unicité, valeurs aberrantes
 
 ---
@@ -71,7 +83,7 @@ Pipeline data engineering end-to-end analysant **9+ millions de transactions imm
 
 ### Marts
 
-**fct_transactions** : table de faits dédupliquée par mutation (ROW_NUMBER sur identifiant_de_document), filtrée sur les ventes résidentielles uniquement, avec calcul du prix/m² et flags de qualité. Filtres prix appliqués : 1 000 € < valeur < 50 000 000 €, prix/m² entre 500 et 30 000 €.
+**fct_transactions** : table de faits dédupliquée par mutation (ROW_NUMBER sur identifiant_de_document), filtrée sur les ventes résidentielles uniquement, avec calcul du prix/m² et flags de qualité. Filtres appliqués : 1 000 € < valeur < 50 000 000 €, prix/m² entre 500 et 30 000 €.
 
 **agg_communes** : KPIs agrégés par commune et année — prix médian, prix/m² médian, volume de transactions, surfaces médianes, répartition maisons/appartements.
 
@@ -155,18 +167,31 @@ dbt test
 
 7. Données DVF — télécharger depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/) et placer dans `data/raw/`
 
+8. Dashboard Streamlit (optionnel en local)
+
+```bash
+pip install -r requirements_streamlit.txt
+streamlit run app.py
+```
+
 ---
 
 ## Structure du projet
 
 ```
 projet_dvf/
-├── assets/               # Screenshots et outputs
+├── assets/                        # Screenshots pipeline outputs
+│   ├── dbt_test_pass.png
+│   ├── fct_transactions_sample.png
+│   └── agg_communes_top_prix.png
 ├── data/
-│   └── raw/              # Fichiers DVF sources (non versionnés)
+│   ├── raw/                       # Fichiers DVF sources (non versionnés)
+│   └── processed/                 # CSV exports pour le dashboard
+│       ├── fct_transactions_sample.csv
+│       └── agg_communes.csv
 ├── scripts/
-│   └── load_raw_data.py  # Ingestion Python vers Snowflake
-├── dvf_project/          # Projet dbt
+│   └── load_raw_data.py           # Ingestion Python vers Snowflake
+├── dvf_project/                   # Projet dbt
 │   ├── macros/
 │   │   └── generate_schema_name.sql
 │   ├── models/
@@ -178,8 +203,11 @@ projet_dvf/
 │   │       ├── fct_transactions.sql
 │   │       ├── agg_communes.sql
 │   │       └── schema.yml
-│   └── dbt_project.yml
-├── requirements.txt
+│   ├── dbt_project.yml
+│   └── packages.yml
+├── app.py                         # Dashboard Streamlit
+├── requirements.txt               # Dependances pipeline
+├── requirements_streamlit.txt     # Dependances dashboard
 ├── .gitignore
 └── README.md
 ```
@@ -194,6 +222,8 @@ projet_dvf/
 | dbt Core    | Transformations ELT                |
 | Python      | Ingestion des données brutes       |
 | pandas      | Lecture et chargement des fichiers |
+| Streamlit   | Dashboard interactif déployé       |
+| Plotly      | Visualisations interactives        |
 
 ---
 
