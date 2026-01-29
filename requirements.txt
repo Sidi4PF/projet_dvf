@@ -11,3 +11,7 @@ python-dotenv==1.0.1
 
 # Logging
 python-json-logger==4.0.0
+
+# Dashboard
+streamlit
+plotly
