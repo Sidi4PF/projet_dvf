@@ -17,6 +17,7 @@ dvf_project/dbt_modules/
 
 # Data (trop volumineux pour Git)
 data/raw/*.txt
+data/processed/*.csv
 
 # OS
 .DS_Store
